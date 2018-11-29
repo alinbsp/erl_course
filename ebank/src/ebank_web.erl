@@ -1,5 +1,3 @@
-%% @author Mochi Media <dev@mochimedia.com>
-%% @copyright 2010 Mochi Media <dev@mochimedia.com>
 
 %% @doc Web server for ebank.
 
@@ -29,8 +27,9 @@ loop(Req, DocRoot) ->
             Method when Method =:= 'GET'; Method =:= 'HEAD' ->
                 case Path of
                   "hello_world" ->
-                    Req:respond({200, [{"Content-Type", "text/plain"}],
-                    "Hello world!\n"});
+                    Req:respond({200, [{"Content-Type", "text/plain"}], "Hello world!\n"});
+		   "getBalance" ->
+		    Req:respond({200, [{"Content-Type", "text/plain"}], "{\"Balance\": 100}\n"});
                     _ ->
                         Req:serve_file(Path, DocRoot)
                 end;

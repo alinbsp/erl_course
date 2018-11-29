@@ -1,6 +1,3 @@
-%% @author Mochi Media <dev@mochimedia.com>
-%% @copyright 2010 Mochi Media <dev@mochimedia.com>
-
 %% @doc ebank.
 
 -module(ebank).

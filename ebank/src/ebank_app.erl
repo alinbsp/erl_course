@@ -1,5 +1,3 @@
-%% @author Mochi Media <dev@mochimedia.com>
-%% @copyright ebank Mochi Media <dev@mochimedia.com>
 
 %% @doc Callbacks for the ebank application.
 
