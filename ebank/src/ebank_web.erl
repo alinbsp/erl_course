@@ -10,6 +10,10 @@
 
 %% External API
 
+
+-record(accountDetails, {name, balance, pin}).
+-record(account, {id, details=accountDetails#{}}).
+
 start(Options) ->
     {DocRoot, Options1} = get_option(docroot, Options),
     Loop = fun (Req) ->
@@ -29,12 +33,23 @@ loop(Req, DocRoot) ->
                   "hello_world" ->
                     Req:respond({200, [{"Content-Type", "text/plain"}], "Hello world!\n"});
 		   "getBalance" ->
+	            Accounts = mochiglobal:get(accounts),
 		    Req:respond({200, [{"Content-Type", "text/plain"}], "{\"Balance\": 100}\n"});
                     _ ->
                         Req:serve_file(Path, DocRoot)
                 end;
             'POST' ->
                 case Path of
+		   "create" ->
+		   	QueryData = Req:parse_qs(),
+			%[{id, Id}, {name, Name}, {pin, Pin}, {balance, Balance}] = QueryData,
+			QueryKeys = proplists:get_keys(QueryData),
+			[Id, Name, Balance, Pin] = lists:map(fun(X) -> proplists:get_value(X, QueryData) end, QueryKeys),
+		   	Adet = #accountDetails{name=Name, balance=Balance, pin=Pin},
+                   	Account = #account{id=Id, details=Adet},
+			Accounts = mochiglobal:get(accounts),
+			NewAccounts = [Account|Accounts],
+			mochiglobal:put(accounts, Account);
                     _ ->
                         Req:not_found()
                 end;
