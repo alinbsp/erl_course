@@ -3,6 +3,7 @@
 
 -module(ebank_web).
 -author("Mochi Media <dev@mochimedia.com>").
+-define(TEST, true).
 
 -compile(tuple_calls).
 
@@ -27,97 +28,94 @@ stop() ->
 loop(Req, DocRoot) ->
     "/" ++ Path = Req:get(path),
     try
-        case Req:get(method) of
-            Method when Method =:= 'GET'; Method =:= 'HEAD' ->
-                case Path of
-                  "hello_world" ->
-                    Req:respond({200, [{"Content-Type", "text/plain"}], "Hello world!\n"});
-		   "getBalance" ->
+      case Req:get(method) of
+         Method when Method =:= 'GET'; Method =:= 'HEAD' ->
+         case Path of
+            "hello_world" ->
+               Req:respond({200, [{"Content-Type", "text/plain"}], "Hello world!\n"});
+            "getBalance" ->
 	            Accounts = mochiglobal:get(accounts),
-		    Req:respond({200, [{"Content-Type", "text/plain"}], "{\"Balance\": 100}\n"});
-        "check" ->
-        QueryData = Req:parse_qs(),
-        QueryKeys = proplists:get_keys(QueryData),
-        Id = lists:map(fun(X) -> proplists:get_value(X, QueryData) end, QueryKeys),
-        
-        Idint = list_to_integer(hd(Id)),
-       
-        % Account1 = #account{id=1,details=#accountDetails{name=account1,balance=1234,pin=100}},
-        
-        % Account2 = #account{id=2,details=#accountDetails{name=account2,balance=1234,pin=200}},
-        % Accounts = [Account1, Account2],
-         Accounts = mochiglobal:get(accounts),
-        
-        io:format("Before filter: ~p", [is_list(Accounts)]),
-        % io:format("Id-ul primului account: ~p", [is_tuple(hd(Accounts))]),
-        % io:format("Id-ul paramateru: ~p", [Idint]),
-
-        Account = lists:filter(fun(X) -> list_to_integer(element(2, X)) =:= Idint end,  Accounts),
-        
-        io:format("++++++++~p", [Account]),
-       
-       
-       % io:format(io_lib:format("~p", [element(2, element(3,(hd(Account))))])),
-       
-       
-        Body = "{\n\t\"Name\":\"" ++ io_lib:format("~p", [element(2, element(3,(hd(Account))))]) ++ "\",\n" ++  "\t\"Balance\":\"" 
-                ++ io_lib:format("~p", [element(3, element(3,(hd(Account))))]) ++ "\"\n}",
-      Req:respond({200, [{"Content-Type", "text/plain"}], Body});
-
-
+               Req:respond({200, [{"Content-Type", "text/plain"}], "{\"Balance\": 100}\n"});
+            "check" ->
+               QueryData = Req:parse_qs(),
+               QueryKeys = proplists:get_keys(QueryData),
+               Id = lists:map(fun(X) -> proplists:get_value(X, QueryData) end, QueryKeys),
+               Idint = list_to_integer(hd(Id)),
+               Accounts = mochiglobal:get(accounts),
+               case Accounts of 
+                  undefined ->
+                     Body = "\n\tList of accounts is empty!";
+                  _ ->
+                     Account = lists:filter(fun(X) -> list_to_integer(element(2, X)) =:= Idint end,  Accounts),
+                     case length(Account) of 
+                        0 ->
+                           Body =  "\n\tAccount not found!";
+                        _ -> 
+                           io:format("Account: ~p", [Account]),  
+                           Body = "{\n\t\"Name\":" ++ io_lib:format("~p", [element(2, element(3,(hd(Account))))]) ++ ",\n" ++  "\t\"Balance\":" 
+                                                   ++ io_lib:format("~p", [element(3, element(3,(hd(Account))))]) ++ "\n}"
+                     end
+               end,
+               Req:respond({200, [{"Content-Type", "text/plain"}], Body});
             _ ->
-                        Req:serve_file(Path, DocRoot)
-                end;
-            'POST' ->
-                case Path of
-		   "create" ->
-		   	QueryData = Req:parse_qs(),
-			%[{id, Id}, {name, Name}, {pin, Pin}, {balance, Balance}] = QueryData,
-			QueryKeys = lists:sort(proplists:get_keys(QueryData)),
-      io:format("+++++++++++~p", [QueryData]),
-			[Balance, Id, Name, Pin] = lists:map(fun(X) -> proplists:get_value(X, QueryData) end, QueryKeys),
-      io:format("PIn: ~p", [Pin]),
-      io:format("Balance: ~p", [Balance]),
-      io:format("Name: ~p", [Name]),
-      % io:format("++++++++++++~p", [QueryData]),
-		   	Adet = #accountDetails{name=Name, balance=Balance, pin=Pin},
-                   	Account = #account{id=Id, details=Adet},
-			Accounts = mochiglobal:get(accounts),
-      io:format("Before Case: ~p", [Accounts]),
-      case Accounts of
-        undefined  -> NewAccounts = [Account],
-        mochiglobal:put(accounts, NewAccounts),
-         % io:format("UNDEFINED:~p",[mochiglobal:get(accounts)]),
-         Body = "{\"Name\":\"" ++ Adet#accountDetails.name ++ "\n\"Balance\":\"" ++ Adet#accountDetails.balance ++ "\"}",
-      Req:respond({200, [{"Content-Type", "text/plain"}], Body});
-        %Req:respond({200, [{"Content-Type", "text/plain"}], "undefined"});
-         _ -> NewAccounts = [Account|Accounts],
-			mochiglobal:put(accounts, NewAccounts),
-      io:format("+++~p",[mochiglobal:get(accounts)]),
-      Body = "{\"Name\":\"" ++ Adet#accountDetails.name ++ "\n\"Balance\":\"" ++ Adet#accountDetails.balance ++ "\"}",
-      Req:respond({200, [{"Content-Type", "text/plain"}], Body})
-    end;
-                    _ ->
-                        Req:not_found()
-                end;
+               Req:serve_file(Path, DocRoot)
+            end;
+         'POST' ->
+         case Path of
+            "create" ->
+		   	   QueryData = Req:parse_qs(),
+			      %[{id, Id}, {name, Name}, {pin, Pin}, {balance, Balance}] = QueryData,
+			      QueryKeys = lists:sort(proplists:get_keys(QueryData)),
+      			[Balance, Id, Name, Pin] = lists:map(fun(X) -> proplists:get_value(X, QueryData) end, QueryKeys),
+      	   	Adet = #accountDetails{name=Name, balance=Balance, pin=Pin},
+               Account = #account{id=Id, details=Adet},
+			      Accounts = mochiglobal:get(accounts),
+               case Accounts of
+                  undefined  -> 
+                     NewAccounts = [Account],
+                     mochiglobal:put(accounts, NewAccounts),
+                     % Body = "{\n\t\"Name\":\"" ++ Adet#accountDetails.name ++ "\",\n" ++  "\t\"Balance\":\"" ++ Adet#accountDetails.balance ++ "\"\n}";
+                     Body = generate_body(Account);
+                  _ -> 
+                     % SearchAccount = lists:filter(fun(X) -> X#account.id =:= Id end,  Accounts),
+                     SearchAccount = search_account_byId(Id, Accounts),
+                     
+                     case length(SearchAccount) of
+                        0 ->
+                           NewAccounts = [Account|Accounts],
+			                  mochiglobal:put(accounts, NewAccounts),
+                           % Body = "{\n\t\"Name\":\"" ++ Adet#accountDetails.name ++ "\",\n" ++  "\t\"Balance\":\"" ++ Adet#accountDetails.balance ++ "\"\n}";
+                           Body = generate_body(Account);
+                        _ ->
+                           Body = "\n\t An account with this id already exists!"
+                     end
+               end,
+               Req:respond({200, [{"Content-Type", "text/plain"}], Body});
             _ ->
-                Req:respond({501, [], []})
+               Req:not_found()
+         end;
+         _ ->
+            Req:respond({501, [], []})
         end
-    catch
-        Type:What ->
-            Report = ["web request failed",
-                      {path, Path},
-                      {type, Type}, {what, What},
-                      {trace, erlang:get_stacktrace()}],
-            error_logger:error_report(Report),
-            Req:respond({500, [{"Content-Type", "text/plain"}],
-                         "request failed, sorry\n"})
-    end.
+   catch
+      Type:What ->
+      Report = ["web request failed",
+                  {path, Path},
+                  {type, Type}, {what, What},
+                  {trace, erlang:get_stacktrace()}],
+      error_logger:error_report(Report),
+      Req:respond({500, [{"Content-Type", "text/plain"}], "request failed, sorry\n"})
+   end. 
 
 %% Internal API
-
 get_option(Option, Options) ->
-    {proplists:get_value(Option, Options), proplists:delete(Option, Options)}.
+   {proplists:get_value(Option, Options), proplists:delete(Option, Options)}.
+
+generate_body(#account{id=Id, details=#accountDetails{name = Name, balance = Balance,  pin = Pin}}) ->
+   Body = "{\n\t\"Name\":\"" ++ Name ++ "\",\n" ++  "\t\"Balance\":\"" ++ Balance ++ "\"\n}".
+
+search_account_byId(Id, Accounts) -> 
+   SearchAccount = lists:filter(fun(X) -> X#account.id =:= Id end, Accounts).
 
 %%
 %% Tests
@@ -125,11 +123,16 @@ get_option(Option, Options) ->
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
-you_should_write_a_test() ->
-    ?assertEqual(
-       "No, but I will!",
-       "Have you written any tests?"),
-    ok.
+generate_body_test_() ->
+Account = #account{id = 1, details=#accountDetails{name="account1", balance="1000", pin=12345}},
+Body = "{\n\t\"Name\":" ++ "\"account1\"" ++ ",\n" ++  "\t\"Balance\":" ++ "\"1000\"" ++ "\n}",
+?_assertEqual(Body, generate_body(Account)).
+
+searc_account_byId_test_() ->
+Account1 = #account{id = 1, details=#accountDetails{name="account1", balance="1000", pin=12345}},
+Account2 = #account{id = 2, details=#accountDetails{name="account2", balance="200", pin=12}},
+Accounts = [Account1, Account2],
+Id = 1,
+?_assertEqual([Account1], search_account_byId(Id, Accounts)).
 
 -endif.
-
