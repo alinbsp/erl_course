@@ -6,6 +6,7 @@
 -define(TEST, true).
 
 -compile(tuple_calls).
+-include_lib("kernel/include/logger.hrl").
 
 -export([start/1, stop/0, loop/2]).
 
@@ -26,9 +27,11 @@ stop() ->
     mochiweb_http:stop(?MODULE).
 
 handle_get("hello_world", Req, _) ->
+   error_logger:info_msg("[GET]: Hello World"),
    Req:respond({200, [{"Content-Type", "text/plain"}], "Hello world!\n"});
 
 handle_get("getBalance", Req, _) ->
+   error_logger:info_msg("[GET: get balance"),
    QueryData = Req:parse_qs(),
    QueryKeys = lists:sort(proplists:get_keys(QueryData)),
    [Name, Pin] = lists:map(fun(X) -> proplists:get_value(X, QueryData) end, QueryKeys),
@@ -49,7 +52,9 @@ handle_get("getBalance", Req, _) ->
    Req:respond({200, [{"Content-Type", "text/plain"}], Body});
 
 handle_get("check", Req, _) ->
+   error_logger:info_msg("[GET]: check"),
    QueryData = Req:parse_qs(),
+   erlang:display(QueryData),
    QueryKeys = proplists:get_keys(QueryData),
    Id = lists:map(fun(X) -> proplists:get_value(X, QueryData) end, QueryKeys),
    Accounts = mochiglobal:get(accounts),
@@ -70,10 +75,13 @@ handle_get("check", Req, _) ->
    Req:respond({200, [{"Content-Type", "text/plain"}], Body});
 
 handle_get(Path, Req, DocRoot) ->
+   error_logger:info_msg("[GET]: Ohter"),
    Req:serve_file(Path, DocRoot).
 
 handle_post("create", Req, _) ->
+   error_logger:info_msg("[POST]: Create"),
    QueryData = Req:parse_qs(),
+   parse_body(Req:recv_body()),
    %[{id, Id}, {name, Name}, {pin, Pin}, {balance, Balance}] = QueryData,
    QueryKeys = lists:sort(proplists:get_keys(QueryData)),
    [Balance, Id, Name, Pin] = lists:map(fun(X) -> proplists:get_value(X, QueryData) end, QueryKeys),
@@ -100,6 +108,7 @@ handle_post("create", Req, _) ->
    Req:respond({200, [{"Content-Type", "text/plain"}], Body});
 
 handle_post(_Path, Req, _DocRoot) ->
+   error_logger:info_msg("[POST]: Other"),
    Req:not_found().
 
 loop(Req, DocRoot) ->
@@ -127,6 +136,7 @@ loop(Req, DocRoot) ->
 get_option(Option, Options) ->
    {proplists:get_value(Option, Options), proplists:delete(Option, Options)}.
 
+
 generate_body(#account{id = _Id, details=#accountDetails{name = Name, balance = Balance,  pin = _Pin}}) ->
    "{\n\t\"Name\":\"" ++ Name ++ "\",\n" ++  "\t\"Balance\":\"" ++ Balance ++ "\"\n}".
 
@@ -139,6 +149,13 @@ convert_tuples_to_records(Accounts) ->
 
 get_balance(Name, Pin, Accounts) ->
    lists:filter(fun(X) -> X#account.details#accountDetails.name =:= Name andalso X#account.details#accountDetails.pin =:= Pin end, Accounts).
+
+
+parse_body(Data) when is_binary(Data) ->
+   Json = binary_to_list(Data),
+   Strip_with = "\n\t",
+   To_stripp = Json,
+   S = lists:filter( fun(C) -> not lists:member(C, Strip_with) end, To_stripp ).
 
 %%
 %% Tests
