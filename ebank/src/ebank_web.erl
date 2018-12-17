@@ -28,49 +28,35 @@ stop() ->
 
 handle_get("hello_world", Req, _) ->
    error_logger:info_msg("[GET]: Hello World"),
-   Req:respond({200, [{"Content-Type", "text/plain"}], "Hello world!\n"});
+   Body = rec2json:msg2json(msg, "Hello World!"),
+   Req:respond({200, [{"Content-Type", "text/plain"}], Body});
 
 handle_get("getBalance", Req, _) ->
-   error_logger:info_msg("[GET: get balance"),
-   QueryData = Req:parse_qs(),
-   QueryKeys = lists:sort(proplists:get_keys(QueryData)),
-   [Name, Pin] = lists:map(fun(X) -> proplists:get_value(X, QueryData) end, QueryKeys),
+   error_logger:info_msg("[GET]: get balance"),
+   [Name, Pin] = get_params(Req),
    Accounts = mochiglobal:get(accounts),
-   case Accounts of
+   Body = case Accounts of
       undefined ->
-         Body = "\n\tList of accounts is empty!";
+         rec2json:msg2json(error, "List of accounts is empty!");
       _ ->
          ListofAccountsrecord = convert_tuples_to_records(Accounts),
          SearchAccountforBalance = get_balance(Name, Pin, ListofAccountsrecord),
-         case length(SearchAccountforBalance) of
-            0 ->
-               Body = "\n\tAccount not found!";
-            _ ->
-               Body = generate_body(hd(SearchAccountforBalance))
-            end
+         generate_body(SearchAccountforBalance)
       end,
    Req:respond({200, [{"Content-Type", "text/plain"}], Body});
 
 handle_get("check", Req, _) ->
    error_logger:info_msg("[GET]: check"),
-   QueryData = Req:parse_qs(),
-   erlang:display(QueryData),
-   QueryKeys = proplists:get_keys(QueryData),
-   Id = lists:map(fun(X) -> proplists:get_value(X, QueryData) end, QueryKeys),
+   Id = get_params(Req),
    Accounts = mochiglobal:get(accounts),
-   case Accounts of
+   Body = case Accounts of
       undefined ->
-         Body = "\n\tList of accounts is empty!";
+         rec2json:msg2json(error, "User not found!");
       _ ->
          ListofAccountsrecord = convert_tuples_to_records(Accounts),
-         IsAccount = lists:map(fun(X) ->  io:format("Account record format: ~p", [X#account.details#accountDetails.name])end, ListofAccountsrecord),
+         IsAccount = lists:map(fun(X) ->  io:format("Account record format: ~p\n", [X#account.details#accountDetails.name])end, ListofAccountsrecord),
          Account = search_account_byId(hd(Id), ListofAccountsrecord),
-         case length(Account) of
-            0 ->
-               Body =  "\n\tAccount not found!";
-            _ ->
-               Body = generate_body(hd(Account))
-         end
+         generate_body(Account)
    end,
    Req:respond({200, [{"Content-Type", "text/plain"}], Body});
 
@@ -80,31 +66,10 @@ handle_get(Path, Req, DocRoot) ->
 
 handle_post("create", Req, _) ->
    error_logger:info_msg("[POST]: Create"),
-   QueryData = Req:parse_qs(),
-   parse_body(Req:recv_body()),
-   %[{id, Id}, {name, Name}, {pin, Pin}, {balance, Balance}] = QueryData,
-   QueryKeys = lists:sort(proplists:get_keys(QueryData)),
-   [Balance, Id, Name, Pin] = lists:map(fun(X) -> proplists:get_value(X, QueryData) end, QueryKeys),
-   Adet = #accountDetails{name=Name, balance=Balance, pin=Pin},
-   Account = #account{id=Id, details=Adet},
+   [Balance, Id, Name, Pin] = get_params(Req),
+   Account = #account{id=Id, details=#accountDetails{name=Name, balance=Balance, pin=Pin}},
    Accounts = mochiglobal:get(accounts),
-   case Accounts of
-      undefined  ->
-         NewAccounts = [Account],
-         mochiglobal:put(accounts, NewAccounts),
-         Body = generate_body(Account);
-      _ ->
-         SearchAccount = search_account_byId(Id, Accounts),
-
-         case length(SearchAccount) of
-            0 ->
-               NewAccounts = [Account|Accounts],
-               mochiglobal:put(accounts, NewAccounts),
-               Body = generate_body(Account);
-            _ ->
-               Body = "\n\t An account with this id already exists!"
-         end
-   end,
+   Body = create_account(Accounts, Account),
    Req:respond({200, [{"Content-Type", "text/plain"}], Body});
 
 handle_post(_Path, Req, _DocRoot) ->
@@ -132,13 +97,45 @@ loop(Req, DocRoot) ->
       Req:respond({500, [{"Content-Type", "text/plain"}], "request failed, sorry\n"})
    end.
 
+
+%% -----------------------------------------------------------------------------------------------------------------
+
 %% Internal API
 get_option(Option, Options) ->
    {proplists:get_value(Option, Options), proplists:delete(Option, Options)}.
 
+get_params(Req) ->
+   QueryData = Req:parse_qs(),
+   QueryKeys = lists:sort(proplists:get_keys(QueryData)),
+   lists:map(fun(X) -> proplists:get_value(X, QueryData) end, QueryKeys).
 
+create_account(undefined, Account) ->
+   NewAccounts = [Account],
+   mochiglobal:put(accounts, NewAccounts),
+   generate_body(Account);
+
+create_account(Accounts, Account=#account{id=Id, details=_Details}) ->
+   SearchAccount = search_account_byId(Id, Accounts),
+   case length(SearchAccount) of
+   0 ->
+      NewAccounts = [Account|Accounts],
+      mochiglobal:put(accounts, NewAccounts),
+      generate_body(Account);
+   _ ->
+      rec2json:msg2json(error, "An account with this id already exists!")
+   end.
+
+%% -----------------------------------------------------------------------------------------------------------------
+generate_body(undefined) ->
+   ok;
+generate_body([]) ->
+   rec2json:msg2json(error, "Account not found!");
 generate_body(#account{id = _Id, details=#accountDetails{name = Name, balance = Balance,  pin = _Pin}}) ->
-   "{\n\t\"Name\":\"" ++ Name ++ "\",\n" ++  "\t\"Balance\":\"" ++ Balance ++ "\"\n}".
+   rec2json:msg2json(["Name", "Balance"], [Name, Balance]);
+generate_body(Accounts) when is_list(Accounts) ->
+   generate_body(hd(Accounts)).
+
+%% -----------------------------------------------------------------------------------------------------------------
 
 search_account_byId(Id, Accounts) ->
    lists:filter(fun(X) -> X#account.id =:= Id end, Accounts).
