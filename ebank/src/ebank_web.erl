@@ -3,18 +3,19 @@
 
 -module(ebank_web).
 -author("Mochi Media <dev@mochimedia.com>").
--define(TEST, true).
+-define(TESTING, true).
 
 -compile(tuple_calls).
 -include_lib("kernel/include/logger.hrl").
 
--export([start/1, stop/0, loop/2]).
+-export([start/1, stop/0, loop/2, generate_body/1]).
 
 %% External API
 
 
 -record(accountDetails, {name, balance, pin}).
 -record(account, {id, details=accountDetails#{}}).
+-record(test, {id, accountDetails=accountDetails#{}}).
 
 start(Options) ->
     {DocRoot, Options1} = get_option(docroot, Options),
@@ -152,12 +153,12 @@ parse_body(Data) when is_binary(Data) ->
    Json = binary_to_list(Data),
    Strip_with = "\n\t",
    To_stripp = Json,
-   S = lists:filter( fun(C) -> not lists:member(C, Strip_with) end, To_stripp ).
+   lists:filter( fun(C) -> not lists:member(C, Strip_with) end, To_stripp ).
 
 %%
 %% Tests
 %%
--ifdef(TEST).
+-ifdef(TESTING).
 -include_lib("eunit/include/eunit.hrl").
 
 generate_body_test_() ->

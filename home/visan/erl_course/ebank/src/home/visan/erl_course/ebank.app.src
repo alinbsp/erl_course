@@ -1,0 +1,9 @@
+%% -*- erlang -*-
+{application, /home/visan/erl_course/ebank,
+ [{description, "/home/visan/erl_course/ebank"},
+  {vsn, "0.1"},
+  {modules, []},
+  {registered, []},
+  {mod, {'/home/visan/erl_course/ebank_app', []}},
+  {env, []},
+  {applications, [kernel, stdlib, crypto]}]}.
